@@ -44,6 +44,30 @@ const resetImplicitReflexPermanent = event => {
   }
 }
 
+const dispatchableOperations = {
+  dispatchEvent: event => {
+    CableReady.perform({dispatchEvent: event})
+  },
+
+  morph: morph => {
+    const urls = [
+      ...new Set(morph.map(m => m.stimulusReflex.url))
+    ]
+
+    if (urls.length == 1 && urls[0] == location.href) {
+      CableReady.perform({morph: morph})
+    }
+  }
+}
+
+const dispatchOperation = (operationType, data) => {
+  const handler = dispatchableOperations[operationType]
+
+  if (!handler) return
+
+  return handler(data)
+}
+
 // Subscribes a StimulusReflex controller to an ActionCable channel.
 //
 // controller - the StimulusReflex controller to subscribe
@@ -57,13 +81,11 @@ const createSubscription = controller => {
     actionCableConsumer.subscriptions.findAll(identifier)[0] ||
     actionCableConsumer.subscriptions.create(channel, {
       received: data => {
-        if (!data.cableReady) return
-        if (!data.operations.morph || !data.operations.morph.length) return
-        const urls = [
-          ...new Set(data.operations.morph.map(m => m.stimulusReflex.url))
-        ]
-        if (urls.length !== 1 || urls[0] !== location.href) return
-        CableReady.perform(data.operations)
+        if (!data.cableReady || !data.operations) return
+
+        Object.keys(data.operations).forEach(operation => {
+          dispatchOperation(operation, data.operations[operation])
+        })
       }
     })
 }
