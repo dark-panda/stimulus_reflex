@@ -22,12 +22,13 @@ require "generators/stimulus_reflex_generator"
 
 module StimulusReflex
   class << self
-    attr_accessor :configuration
-  end
+    def configure
+      yield(configuration)
+    end
 
-  def self.configure
-    self.configuration ||= Configuration.new
-    yield(configuration)
+    def configuration
+      @configuration ||= Configuration.new
+    end
   end
 
   class Engine < Rails::Engine
