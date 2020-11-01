@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class StimulusReflex::Channel < StimulusReflex.parent_channel.constantize
+class StimulusReflex::Channel < StimulusReflex.configuration.parent_channel.constantize
   def stream_name
     ids = connection.identifiers.map { |identifier| send(identifier).try(:id) || send(identifier) }
     [
@@ -11,6 +11,7 @@ class StimulusReflex::Channel < StimulusReflex.parent_channel.constantize
 
   def subscribed
     super
+    fix_environment!
     stream_from stream_name
   end
 
@@ -24,8 +25,9 @@ class StimulusReflex::Channel < StimulusReflex.parent_channel.constantize
     reflex_name = reflex_name.end_with?("Reflex") ? reflex_name : "#{reflex_name}Reflex"
     arguments = (data["args"] || []).map { |arg| object_with_indifferent_access arg }
     element = StimulusReflex::Element.new(data)
-    permanent_attribute_name = data["permanent_attribute_name"]
-    params = data["params"] || {}
+    permanent_attribute_name = data["permanentAttributeName"]
+    form_data = Rack::Utils.parse_nested_query(data["formData"])
+    params = form_data.deep_merge(data["params"] || {})
 
     begin
       begin
@@ -97,5 +99,11 @@ class StimulusReflex::Channel < StimulusReflex.parent_channel.constantize
 
   def exception_message_with_backtrace(exception)
     "#{exception}\n#{exception.backtrace.first}"
+  end
+
+  def fix_environment!
+    ([ApplicationController] + ApplicationController.descendants).each do |controller|
+      controller.renderer.instance_variable_set(:@env, connection.env.merge(controller.renderer.instance_variable_get(:@env)))
+    end
   end
 end
